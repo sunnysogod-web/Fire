@@ -260,7 +260,7 @@
             <span class="text-6xl bounce-school">🏫</span>
           </div>
           <h1 class="text-5xl font-bold text-white mb-2" style="font-family: 'Fredoka', sans-serif; letter-spacing: -1px;">ระบบลากลับบ้าน</h1>
-          <p class="text-purple-100 font-semibold text-lg">โรงเรียนแสงทับทิมวิทยา</p>
+          <p class="text-purple-100 font-semibold text-lg">โรงเรียนสามร้อยยอดวิทยาคม</p>
         </div>
 
         <div class="card p-8">
@@ -858,4 +858,94 @@
       
       container.innerHTML = myRequests.map(req => {
         const statusClass = req.status === 'pending' ? 'pending' : req.status === 'approved' ? 'approved' : 'rejected';
-        retu
+        return `
+          <div class="request-card ${statusClass}">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <p class="font-bold text-gray-800">${req.reason}</p>
+                <p class="text-sm text-gray-600">${req.leaveDate} เวลา ${req.leaveTime} - ${req.returnTime}</p>
+                ${req.photo ? `<p class="text-xs text-gray-500 mt-1">📷 มีรูปแนบ</p>` : ''}
+              </div>
+              <span class="text-xs font-bold px-3 py-1 bg-white/60 rounded-full">${statusEmoji[req.status]} ${statusLabels[req.status]}</span>
+            </div>
+            ${req.rejectionNote ? `<p class="text-xs text-red-700 mt-2">💬 ${req.rejectionNote}</p>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setupRealtimeListener() {
+      if (!db) {
+        updateStaffView();
+        return;
+      }
+      if (realtimeUnsubscribe) realtimeUnsubscribe();
+      realtimeUnsubscribe = db.collection('leaveRequests').orderBy('createdAt', 'desc').onSnapshot(
+        (snapshot) => {
+          allRequests = [];
+          snapshot.forEach(doc => allRequests.push({ id: doc.id, ...doc.data() }));
+          updateStaffView();
+        },
+        (error) => {
+          console.error('Realtime error:', error);
+          showToast('เกิดข้อผิดพลาดในการรับข้อมูล', 'error');
+        }
+      );
+    }
+
+    function updateStaffView() {
+      document.getElementById('stat-total').textContent = allRequests.length;
+      document.getElementById('stat-pending').textContent = allRequests.filter(r => r.status === 'pending').length;
+      document.getElementById('stat-approved').textContent = allRequests.filter(r => r.status === 'approved').length;
+      document.getElementById('stat-rejected').textContent = allRequests.filter(r => r.status === 'rejected').length;
+      renderRequests();
+    }
+
+    function filterRequests(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === filter) {
+          btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+          btn.style.color = 'white';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = '#374151';
+        }
+      });
+      renderRequests();
+    }
+
+    function renderRequests() {
+      const container = document.getElementById('staff-requests');
+      let filtered = currentFilter === 'all' ? allRequests : allRequests.filter(r => r.status === currentFilter);
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-400 py-12 text-sm">ไม่มีคำขอในหมวดนี้</p>';
+        return;
+      }
+
+      const statusLabels = { pending: 'รอตรวจสอบ', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ' };
+
+      container.innerHTML = filtered.map(req => {
+        const statusClass = req.status === 'pending' ? 'pending' : req.status === 'approved' ? 'approved' : 'rejected';
+        return `
+          <div class="request-card ${statusClass}">
+            <div class="flex flex-wrap justify-between gap-4 mb-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold">
+                    ${req.studentName.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-gray-800">${req.studentName}</h3>
+                    <p class="text-sm text-gray-600">${req.studentRoom}</p>
+                  </div>
+                </div>
+                <div class="space-y-1 text-sm text-gray-700">
+                  <p><strong>เหตุผล:</strong> ${req.reason}</p>
+                  <p><strong>วันที่-เวลา:</strong> ${req.leaveDate} ${req.leaveTime}${req.returnTime !== '-' ? ' - ' + req.returnTime : ''}</p>
+                  <p><strong>ผู้ปกครอง:</strong> ${req.parentName} (${req.parentPhone})</p>
+                  ${req.photo ? `<p class="text-xs text-gray-600 mt-2">📷 <a href="${req.photo}" target="_blank" class="text-blue-600 hover:underline">ดูรูปถ่าย</a></p>` : ''}
+                </div>
+              </div>
+              <span 
